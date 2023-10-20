@@ -6,6 +6,7 @@ import pytz
 import firebase_admin
 from firebase_admin import credentials, db
 from dotenv import load_dotenv
+import datetime
 
 load_dotenv()
 cred_obj = credentials.Certificate("firebase/gdscuassigntelebot-firebase-adminsdk-7n2cn-a33b91995f.json")
@@ -22,6 +23,7 @@ bot = telebot.TeleBot(BOT_TOKEN) # type: ignore
 
 ASSIGNMENTS_LIST = None
 
+#HACK doesn't work 🤧
 @bot.message_handler(func=lambda message: True, content_types=['new_chat_members'])
 def welcome_message_when_added(message):
   """Message to be sent when bot is added to a group.
@@ -44,7 +46,6 @@ def send_welcome(message):
       message (_type_): _description_
   """
   bot.reply_to(message, "Welcome to the Assigments Bot! I'm here to help admins manage assignments. Please add me to a group and make me an admin to get started.")
-  
   
 @bot.message_handler(commands=['help'])
 def send_help(message):
@@ -69,13 +70,12 @@ def create_assignment(message):
   if (message.chat.type != "group"):
     bot.send_message(message.chat.id, "Please add me to a group to get started.")
     return
-  
   #must be an admin of the group
   admin_ids = [admin.user.id for admin in bot.get_chat_administrators(message.chat.id)]
   if (message.from_user.id not in admin_ids):
     bot.reply_to(message, "You must be an admin to set assignments.")
     return
-  bot.send_message(message.chat.id, """
+  message_bot = bot.send_message(message.chat.id, """
 Please reply to this message with the assignment details in the following format:\n\n
 *Course Code*: __course code__
 *Title*: __assignment title__
@@ -83,10 +83,9 @@ Please reply to this message with the assignment details in the following format
 *Description*: __assignment description__
 *Frequency*: __reminder frequency__
 \n
-*Please enter values in the right order*
+*Please enter values in the right order on separate lines.*
 """, parse_mode="Markdown")
-  bot.register_for_reply(message, create_assignment_reply, user_id=message.from_user.id)
-
+  bot.register_for_reply(message_bot, create_assignment_reply, user_id=message.from_user.id)
 
 def create_assignment_reply(message, user_id):
   """Create assignment when user replies to bot's message.
@@ -94,25 +93,31 @@ def create_assignment_reply(message, user_id):
       message (_type_): _description_
   """
   if(message.from_user.id not in [admin.user.id for admin in bot.get_chat_administrators(message.chat.id)]):
-    bot.reply_to(message, "You must be an admin to set assignments.")
     return
   
   if(user_id != message.from_user.id):
     bot.reply_to(message, "It seems you did not intiate this action.")
     return
-
   assignment_details = message.text.splitlines()
   logging.info(assignment_details)
   if ((len(assignment_details) != 5)):
-    bot.reply_to(message, "Please reply to this message with the assignment details in the following format:\n\n*Course Code*: __course code__\n*Title*: __assignment title__\n*Deadline*: dd/mm/yy\n*Description*: __assignment description__\n*Frequency*: __reminder frequency__", parse_mode="Markdown")
-    bot.register_for_reply(message, create_assignment)
+    bot_message = bot.reply_to(message, "Please reply to this message with the assignment details in the following format:\n\n*Course Code*: __course code__\n*Title*: __assignment title__\n*Deadline*: dd/mm/yy\n*Description*: __assignment description__\n*Frequency*: __reminder frequency__", parse_mode="Markdown")
+    bot.register_for_reply(bot_message, create_assignment_reply, user_id=message.from_user.id)
     return
   
   course_code = assignment_details[0].split(":")[1].strip()
   title = assignment_details[1].split(":")[1].strip()
   deadline = assignment_details[2].split(":")[1].strip()
   description = assignment_details[3].split(":")[1].strip()
-  #HACK validate inputs
+  
+  #validate deadline format
+  try:
+    datetime.datetime.strptime(deadline, '%d/%m/%y')
+  except ValueError:
+    bot_message = bot.reply_to(message, "Please renter assignment by replying to this message with the deadline in the right format: dd/mm/yy")
+    bot.register_for_reply(bot_message, create_assignment_reply, user_id=message.from_user.id)
+    return
+
   assignment_details = {
     "course_code": course_code,
     "title":title,
@@ -133,9 +138,10 @@ def list_assignments(message):
   if (message.from_user.id not in [admin.user.id for admin in bot.get_chat_administrators(message.chat.id)]):
     bot.reply_to(message, "You must be an admin to list assignments.")
     return
-  
+  #HACK HANDLE PAGINATION
   ASSIGNMENTS_LIST = assignments_ref.get()
   if (len(ASSIGNMENTS_LIST) > 0):
+    bot.reply_to(message, f"Found {len(ASSIGNMENTS_LIST)} assignments. Listing all.")
     for assignment_id in ASSIGNMENTS_LIST:
       keyboard = InlineKeyboardMarkup()
       keyboard.row(InlineKeyboardButton('Edit', callback_data=f'EDIT_{assignment_id}'), 
@@ -166,12 +172,18 @@ def edit_assignment(call):
     return
   assignment_id = call.data[5:]
   message = bot.send_message(call.message.chat.id, "Please reply to this message with the new assignment details in the following format:\n\n*Course Code*: __course code__\n*Title*: __assignment title__\n*Deadline*: dd/mm/yy\n*Description*: __assignment description__\n*Frequency*: __reminder frequency__", parse_mode="Markdown")
-  bot.register_for_reply(message, edit_assignment_reply, assignment_id=assignment_id)
+  bot.register_for_reply(message, edit_assignment_reply, assignment_id=assignment_id,user_id=call.from_user.id)
   
-def edit_assignment_reply(message, assignment_id):
+def edit_assignment_reply(message, assignment_id,user_id):
+  if(message.from_user.id not in [admin.user.id for admin in bot.get_chat_administrators(message.chat.id)]):
+    return
+  if(user_id != message.from_user.id):
+    bot.reply_to(message, "It seems you did not intiate this action.")
+    return
+
   assignment_details = message.text.splitlines()
   if(len(assignment_details) != 5):
-    bot.reply_to(message,"Please enter the assignment details in the right format. All fields must be entered. Enter each field as a single line.")
+    bot.reply_to(message,"Please enter the assignment details in the right format. All fields must be rentered for update. Please try again.")
   course_code = assignment_details[0].split(":")[1].strip()
   title = assignment_details[1].split(":")[1].strip()
   deadline = assignment_details[2].split(":")[1].strip()
@@ -191,16 +203,18 @@ def delete_assignment(call):
     #maybe just ignore?
     return
   assignment_id = call.data[7:]
-
-  pass
+  assignments_ref.child(assignment_id).delete()
+  bot.reply_to(call.message, "Assignment has been deleted successfully.")
+  bot.delete_message(call.message.chat.id, call.message.message_id)
 
 def send_assignment_reminders():
   global ASSIGNMENTS_LIST
   if (ASSIGNMENTS_LIST is None):
     ASSIGNMENTS_LIST = assignments_ref.get()
-  pass
-  #filter out/delete expired assigmentts
-  #calculate time left for assignment and send notification
+  for assignment in ASSIGNMENTS_LIST:
+    #filter out/delete expired assigments
+    #calculate time left for assignment and send notification
+    pass
   #how to know chats the bot is an admin in
  
 bot.infinity_polling()
