@@ -25,6 +25,7 @@ cred_obj = credentials.Certificate({
   "client_x509_cert_url": os.environ['CLIENT_x509_CERT_URL'],
   "universe_domain": "googleapis.com",
 })
+
 firebase_admin.initialize_app(cred_obj, {
     'databaseURL': os.environ['DATABASE_URL']
 })
