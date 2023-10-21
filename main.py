@@ -50,7 +50,7 @@ def welcome_message_when_added(message):
     new_members = message.new_chat_members
     chat_id = message.chat.id
     for user in new_members:
-        # Check if the new member is your bot
+        # Check if the new member is bot
         if user.username == "YOUR_BOT_USERNAME":
             bot.send_message(
                 chat_id, "Thank you for adding me to this group! I'm here to help admins manage assignments.")
@@ -63,7 +63,8 @@ def send_welcome(message):
     Args:
         message (_type_): _description_
     """
-    bot.reply_to(message, "Welcome to the Assigments Bot! I'm here to help admins manage assignments. Please add me to a group and make me an admin to get started.")
+    if(message.chat.type == "private"):
+        bot.reply_to(message, "Welcome to the Assigments Bot! I'm here to help admins manage assignments. Please add me to a group and make me an admin to get started.")
 
 
 @bot.message_handler(commands=['help'])
@@ -98,6 +99,7 @@ def create_assignment(message):
     if (message.from_user.id not in admin_ids):
         bot.reply_to(message, "You must be an admin to set assignments.")
         return
+    
     message_bot = bot.send_message(message.chat.id, """
 Please reply to this message with the assignment details in the following format:\n\n
 *Course Code*: __course code__
@@ -107,6 +109,7 @@ Please reply to this message with the assignment details in the following format
 \n
 *Please enter values in the right order on separate lines.*
 """, parse_mode="Markdown")
+    
     bot.register_for_reply(
         message_bot, create_assignment_reply, user_id=message.from_user.id)
 
