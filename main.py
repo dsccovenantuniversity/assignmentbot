@@ -123,8 +123,7 @@ def create_assignment_reply(message, user_id):
         bot.reply_to(message, "It seems you did not intiate this action.")
         return
     assignment_details = message.text.splitlines()
-    logging.info(assignment_details)
-    if ((len(assignment_details) != 5)):
+    if ((len(assignment_details) != 4)):
         bot_message = bot.reply_to(message, "Please reply to this message with the assignment details in the following format:\n\n*Course Code*: __course code__\n*Title*: __assignment title__\n*Deadline*: dd/mm/yy\n*Description*: __assignment description__", parse_mode="Markdown")
         bot.register_for_reply(
             bot_message, create_assignment_reply, user_id=message.from_user.id)
@@ -156,7 +155,7 @@ def create_assignment_reply(message, user_id):
     try:
         assignments_ref.push().set(assignment_details)
         logging.info(
-            f'inserted assignment with title {assignment_details["title"]}')
+            f'inserted assignment with title: {assignment_details["title"]}')
         bot.reply_to(message, "Assignment has been created successfully.")
     except Exception as e:
         bot.reply_to(
@@ -282,12 +281,12 @@ def send_assignment_reminders():
         else:
           try:
             bot.send_message(ASSIGNMENTS_LIST[assignment]['chat_id'],
-                             f"Assignment with {ASSIGNMENTS_LIST[assignment]['title']} is due in {days} days. Please submit on timee. ⌛")
+                             f"Assignment with {ASSIGNMENTS_LIST[assignment]['title']} is due in {days} days. Please submit on time. ⌛")
             logging.info(f"sent reminder for assignment with title {ASSIGNMENTS_LIST[assignment]['title']}")
           except Exception as e:
               logging.error(e)
 
-schedule.every().day.at("09:10",LAGOS_TIME).do(send_assignment_reminders) #type: ignore
+schedule.every().day.at("12:00",LAGOS_TIME).do(send_assignment_reminders) #type: ignore
 def schedule_checker():
   while True:
     schedule.run_pending()
