@@ -12,10 +12,21 @@ from firebase_admin import credentials, db
 from dotenv import load_dotenv
 
 load_dotenv()
-cred_obj = credentials.Certificate(
-    "firebase/gdscuassigntelebot-firebase-adminsdk-7n2cn-a33b91995f.json")
+cred_obj = credentials.Certificate({
+  "type":"service_account",
+  "project_id": os.environ['PROJECT_ID'],
+  "private_key": os.environ['PRIVATE_KEY'].replace(r'\n', '\n'),
+  "private_key_id" : os.environ['PRIVATE_KEY_ID'],
+  "client_email":os.environ['CLIENT_EMAIL'],
+  "client_id": os.environ['CLIENT_ID'],
+  "auth_uri": os.environ['AUTH_URI'],
+  "token_uri": os.environ['TOKEN_URI'],
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",\
+  "client_x509_cert_url": os.environ['CLIENT_x509_CERT_URL'],
+  "universe_domain": "googleapis.com",
+})
 firebase_admin.initialize_app(cred_obj, {
-    'databaseURL': 'https://gdscuassigntelebot-default-rtdb.firebaseio.com/'
+    'databaseURL': os.environ['DATABASE_URL']
 })
 assignments_ref = db.reference('/public/assignments')
 
@@ -28,8 +39,6 @@ bot = telebot.TeleBot(BOT_TOKEN)  # type: ignore
 ASSIGNMENTS_LIST = None
 
 # HACK doesn't work 🤧
-
-
 @bot.message_handler(func=lambda message: True, content_types=['new_chat_members'])
 def welcome_message_when_added(message):
     """Message to be sent when bot is added to a group.
