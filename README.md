@@ -28,12 +28,14 @@ Once you have gotten your database up. Create some access rules for 'assignments
 Simply add that snippet under the default "rules" that you'll see there.
 If you don't do this you'll get access errors. You're essentially giving permission for everything under assignments to be accessed by those with the right credentials.
 
-Once the database is setup, navigate to your project settings and go to service accounts and setup a new private key. Copy these details and set them in your deployment provider and ENV variables.
+Once the database is setup, navigate to your project settings and go to service accounts and setup a new private key. Copy these details and set them in your deployment provider as ENV variables.
 
 ### Format for Creating Assignments
 Please adhere to this format strictly in creating assignments.
 
 *Course Code*: __course code__
+
 *Title*: __assignment title__
+
 *Deadline*: dd/mm/yy
 *Description*: __assignment description__
