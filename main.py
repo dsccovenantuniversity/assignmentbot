@@ -195,8 +195,7 @@ def view_assignment(call):
         # just ignore none admin users
         return
     assignment_id = call.data[5:]
-    if (ASSIGNMENTS_LIST is None):
-        ASSIGNMENTS_LIST = assignments_ref.get()
+    ASSIGNMENTS_LIST = assignments_ref.get()
     print(ASSIGNMENTS_LIST)
     bot.reply_to(
         call.message, f"Course Code: {ASSIGNMENTS_LIST[assignment_id]['course_code']}\n Title: {ASSIGNMENTS_LIST[assignment_id]['title'] }\n Deadline: {ASSIGNMENTS_LIST[assignment_id]['deadline']}\n Description: {ASSIGNMENTS_LIST[assignment_id]['description']}")
