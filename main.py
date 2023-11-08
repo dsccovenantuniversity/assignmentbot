@@ -89,7 +89,7 @@ def create_assignment(message):
         message (_type_): _description_
     """
     # must be in a group to set assignment
-    if (message.chat.type != "group"):
+    if (message.chat.type == "private"):
         bot.send_message(
             message.chat.id, "Please add me to a group to get started.")
         return
