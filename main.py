@@ -173,7 +173,7 @@ def list_assignments(message):
         return
     # HACK HANDLE PAGINATION
     ASSIGNMENTS_LIST = assignments_ref.get()
-    if (len(ASSIGNMENTS_LIST) > 0):
+    if (ASSIGNMENTS_LIST is not None and len(ASSIGNMENTS_LIST) > 0):
         bot.reply_to(
             message, f"Found {len(ASSIGNMENTS_LIST)} assignments. Listing all.")
         for assignment_id in ASSIGNMENTS_LIST:
