@@ -99,7 +99,7 @@ def create_assignment(message):
     if (message.from_user.id not in admin_ids):
         bot.reply_to(message, "You must be an admin to set assignments.")
         return
-    
+
     message_bot = bot.send_message(message.chat.id, """
 Please reply to this message with the assignment details in the following format:\n\n
 *Course Code*: __course code__
@@ -109,7 +109,7 @@ Please reply to this message with the assignment details in the following format
 \n
 *Please enter values in the right order on separate lines.*
 """, parse_mode="Markdown")
-    
+
     bot.register_for_reply(
         message_bot, create_assignment_reply, user_id=message.from_user.id)
 
@@ -168,8 +168,26 @@ def create_assignment_reply(message, user_id):
 
 @bot.message_handler(commands=['getassignments'], func=lambda message: message.chat.type == "group")
 def list_assignments(message):
+    # HACK HANDLE PAGINATION
+    ASSIGNMENTS_LIST = assignments_ref.get()
+    if (ASSIGNMENTS_LIST is not None and len(ASSIGNMENTS_LIST) > 0):
+        bot.reply_to(
+            message, f"Found {len(ASSIGNMENTS_LIST)} assignments. Listing all.")
+        for assignment_id in ASSIGNMENTS_LIST:
+            keyboard = InlineKeyboardMarkup()
+            keyboard.row(InlineKeyboardButton('Edit', callback_data=f'EDIT_{assignment_id}'),
+                         InlineKeyboardButton('Delete', callback_data=f'DELETE_{assignment_id}'))
+            keyboard.row(InlineKeyboardButton(
+                'View', callback_data=f'VIEW_{assignment_id}'))
+            bot.reply_to(
+                message, f"Course Code: {ASSIGNMENTS_LIST[assignment_id]['course_code']}\n Title: {ASSIGNMENTS_LIST[assignment_id]['title'] }\n Deadline: {ASSIGNMENTS_LIST[assignment_id]['deadline']}\n Description: {ASSIGNMENTS_LIST[assignment_id]['description'][:50]}", reply_markup=keyboard)
+    else:
+        bot.send_message(message.chat.id, "No assignments found.")
+
+@bot.message_handler(commands=['manageassignments'], func=lambda message: message.chat.type == "group")
+def manage_assignments(message):
     if (message.from_user.id not in [admin.user.id for admin in bot.get_chat_administrators(message.chat.id)]):
-        bot.reply_to(message, "You must be an admin to list assignments.")
+        bot.reply_to(message, "You must be an admin to edit assignments.")
         return
     # HACK HANDLE PAGINATION
     ASSIGNMENTS_LIST = assignments_ref.get()
@@ -293,7 +311,7 @@ def schedule_checker():
   while True:
     schedule.run_pending()
     sleep(1)
-    
+
 Thread(target=schedule_checker).start()
 
 bot.infinity_polling(logger_level=logging.INFO)
