@@ -167,7 +167,7 @@ def create_assignment_reply(message, user_id):
         logging.error(e)
 
 
-@bot.message_handler(commands=['getassignments'], func=lambda message: message.chat.type == "group")
+@bot.message_handler(commands=['getassignments'], func=lambda message: message.chat.type in ["supergroup", "group"])
 def list_assignments(message):
     # HACK HANDLE PAGINATION
     ASSIGNMENTS_LIST = assignments_ref.get()
@@ -178,7 +178,7 @@ def list_assignments(message):
     else:
         bot.send_message(message.chat.id, "No assignments found.")
 
-@bot.message_handler(commands=['manageassignments'], func=lambda message: message.chat.type == "group")
+@bot.message_handler(commands=['manageassignments'], func=lambda message: message.chat.type  in ["supergroup", "group"])
 def manage_assignments(message):
     if (message.from_user.id not in [admin.user.id for admin in bot.get_chat_administrators(message.chat.id)]):
         bot.reply_to(message, "You must be an admin to edit assignments.")
