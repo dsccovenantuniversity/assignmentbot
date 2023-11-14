@@ -10,6 +10,7 @@ import schedule
 import firebase_admin
 from firebase_admin import credentials, db
 from dotenv import load_dotenv
+from utils import generate_get_assignments_message
 
 load_dotenv()
 cred_obj = credentials.Certificate({
@@ -35,7 +36,7 @@ LAGOS_TIME = pytz.timezone('Africa/Lagos')
 logging.basicConfig(level=logging.INFO)
 
 BOT_TOKEN = os.environ['BOT_TOKEN']
-bot = telebot.TeleBot(BOT_TOKEN)  # type: ignore
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode="Markdown")  # type: ignore
 
 ASSIGNMENTS_LIST = None
 
@@ -171,16 +172,9 @@ def list_assignments(message):
     # HACK HANDLE PAGINATION
     ASSIGNMENTS_LIST = assignments_ref.get()
     if (ASSIGNMENTS_LIST is not None and len(ASSIGNMENTS_LIST) > 0):
-        bot.reply_to(
-            message, f"Found {len(ASSIGNMENTS_LIST)} assignments. Listing all.")
-        for assignment_id in ASSIGNMENTS_LIST:
-            keyboard = InlineKeyboardMarkup()
-            keyboard.row(InlineKeyboardButton('Edit', callback_data=f'EDIT_{assignment_id}'),
-                         InlineKeyboardButton('Delete', callback_data=f'DELETE_{assignment_id}'))
-            keyboard.row(InlineKeyboardButton(
-                'View', callback_data=f'VIEW_{assignment_id}'))
-            bot.reply_to(
-                message, f"Course Code: {ASSIGNMENTS_LIST[assignment_id]['course_code']}\n Title: {ASSIGNMENTS_LIST[assignment_id]['title'] }\n Deadline: {ASSIGNMENTS_LIST[assignment_id]['deadline']}\n Description: {ASSIGNMENTS_LIST[assignment_id]['description'][:50]}", reply_markup=keyboard)
+        assignments = list(ASSIGNMENTS_LIST.values())
+        response_message = generate_get_assignments_message(assignments)
+        bot.reply_to(message, response_message)
     else:
         bot.send_message(message.chat.id, "No assignments found.")
 
@@ -311,6 +305,7 @@ def schedule_checker():
   while True:
     schedule.run_pending()
     sleep(1)
+
 
 Thread(target=schedule_checker).start()
 
