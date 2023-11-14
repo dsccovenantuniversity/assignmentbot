@@ -10,6 +10,7 @@ import schedule
 import firebase_admin
 from firebase_admin import credentials, db
 from dotenv import load_dotenv
+from utils import generate_get_assignments_message
 
 load_dotenv()
 cred_obj = credentials.Certificate({
@@ -35,7 +36,7 @@ LAGOS_TIME = pytz.timezone('Africa/Lagos')
 logging.basicConfig(level=logging.INFO)
 
 BOT_TOKEN = os.environ['BOT_TOKEN']
-bot = telebot.TeleBot(BOT_TOKEN)  # type: ignore
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode="Markdown")  # type: ignore
 
 ASSIGNMENTS_LIST = None
 
@@ -99,7 +100,7 @@ def create_assignment(message):
     if (message.from_user.id not in admin_ids):
         bot.reply_to(message, "You must be an admin to set assignments.")
         return
-    
+
     message_bot = bot.send_message(message.chat.id, """
 Please reply to this message with the assignment details in the following format:\n\n
 *Course Code*: __course code__
@@ -109,7 +110,7 @@ Please reply to this message with the assignment details in the following format
 \n
 *Please enter values in the right order on separate lines.*
 """, parse_mode="Markdown")
-    
+
     bot.register_for_reply(
         message_bot, create_assignment_reply, user_id=message.from_user.id)
 
@@ -166,10 +167,21 @@ def create_assignment_reply(message, user_id):
         logging.error(e)
 
 
-@bot.message_handler(commands=['getassignments'], func=lambda message: message.chat.type == "group")
+@bot.message_handler(commands=['getassignments'], func=lambda message: message.chat.type in ["supergroup", "group"])
 def list_assignments(message):
+    # HACK HANDLE PAGINATION
+    ASSIGNMENTS_LIST = assignments_ref.get()
+    if (ASSIGNMENTS_LIST is not None and len(ASSIGNMENTS_LIST) > 0):
+        assignments = list(ASSIGNMENTS_LIST.values())
+        response_message = generate_get_assignments_message(assignments)
+        bot.reply_to(message, response_message)
+    else:
+        bot.send_message(message.chat.id, "No assignments found.")
+
+@bot.message_handler(commands=['manageassignments'], func=lambda message: message.chat.type  in ["supergroup", "group"])
+def manage_assignments(message):
     if (message.from_user.id not in [admin.user.id for admin in bot.get_chat_administrators(message.chat.id)]):
-        bot.reply_to(message, "You must be an admin to list assignments.")
+        bot.reply_to(message, "You must be an admin to edit assignments.")
         return
     # HACK HANDLE PAGINATION
     ASSIGNMENTS_LIST = assignments_ref.get()
@@ -293,7 +305,8 @@ def schedule_checker():
   while True:
     schedule.run_pending()
     sleep(1)
-    
+
+
 Thread(target=schedule_checker).start()
 
 bot.infinity_polling(logger_level=logging.INFO)
