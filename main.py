@@ -170,7 +170,7 @@ def create_assignment_reply(message, user_id):
 @bot.message_handler(commands=['getassignments'], func=lambda message: message.chat.type in ["supergroup", "group"])
 def list_assignments(message):
     # HACK HANDLE PAGINATION
-    ASSIGNMENTS_LIST = assignments_ref.get()
+    ASSIGNMENTS_LIST = assignments_ref.order_by_child("chat_id").equal_to(message.chat.id).get()
     if (ASSIGNMENTS_LIST is not None and len(ASSIGNMENTS_LIST) > 0):
         assignments = list(ASSIGNMENTS_LIST.values())
         response_message = generate_get_assignments_message(assignments)
@@ -184,7 +184,7 @@ def manage_assignments(message):
         bot.reply_to(message, "You must be an admin to edit assignments.")
         return
     # HACK HANDLE PAGINATION
-    ASSIGNMENTS_LIST = assignments_ref.get()
+    ASSIGNMENTS_LIST = assignments_ref.order_by_child("chat_id").equal_to(message.chat.id).get()
     if (ASSIGNMENTS_LIST is not None and len(ASSIGNMENTS_LIST) > 0):
         bot.reply_to(
             message, f"Found {len(ASSIGNMENTS_LIST)} assignments. Listing all.")
