@@ -39,3 +39,18 @@ Please adhere to this format strictly in creating assignments.
 
 *Deadline*: dd/mm/yy
 *Description*: __assignment description__
+
+## Commands
+- '/start' - Starts the bot in the private chat. Just an introduction message. 
+- '/addassignment' - Adds an assignment to the database. Only works in groups. Must be an admin to use. Include assignment details in the same message as the command.
+  Example of telegram message:
+  ```
+    /addassignment
+    Course Code: MTH 101
+    Title: Assignment 1
+    Deadline: 12/12/2020
+    Description: This is a test assignment
+  ```
+- '/getassignments' - Lists all assignments in the group. Only works in groups.
+- '/manageassignments' - Lists all assignments in the group with inline buttons for editing, deletion and viewing. Only works in groups. Must be an admin to use.
+- '/help' - Lists all commands and their descriptions. (Not implemented yet)
