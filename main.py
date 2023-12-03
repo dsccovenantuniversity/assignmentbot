@@ -50,7 +50,8 @@ def send_welcome(message):
     if (message.chat.type == "private"):
         bot.reply_to(message, """Welcome to the Assigments Bot!
                      I'm here to help admins manage assignments. 
-                     Please add me to a group and make me an admin to get started.""")
+                     Please add me to a group and make me an admin to get started.""",
+                     message_thread_id=message.message_thread_id)
 
 
 @bot.message_handler(commands=['help'])
@@ -62,9 +63,11 @@ def send_help(message):
     """
     if (message.chat.type == "private"):
         bot.reply_to(
-            message, "I'm here to help admins manage assignments. Please add me to a group to get started.")
+            message, "I'm here to help admins manage assignments. Please add me to a group to get started.",
+            message_thread_id=message.message_thread_id)
     elif (message.chat.type == "group"):
-        bot.reply_to(message, "I'm here to help admins manage assignments.")
+        bot.reply_to(message, "I'm here to help admins manage assignments.",
+                     message_thread_id=message.message_thread_id)
 
 
 @bot.message_handler(commands=['addassignment'])
@@ -77,14 +80,16 @@ def create_assignment(message):
     # must be in a group to set assignment
     if (message.chat.type == "private"):
         bot.send_message(
-            message.chat.id, "Please add me to a group to get started.")
+            message.chat.id, "Please add me to a group to get started.",
+            message_thread_id=message.message_thread_id)
         return
 
     # must be an admin of the group
     admin_ids = [
         admin.user.id for admin in bot.get_chat_administrators(message.chat.id)]
     if (message.from_user.id not in admin_ids):
-        bot.reply_to(message, "You must be an admin to set assignments.")
+        bot.reply_to(message, "You must be an admin to set assignments.",
+                     message_thread_id=message.message_thread_id)
         return
     assignment_details = message.text.replace(
         "/addassignment", "").strip().split(":")
@@ -109,11 +114,13 @@ def create_assignment(message):
         date = datetime.datetime.strptime(deadline, '%d/%m/%y')
         if (date.astimezone(LAGOS_TIME) < datetime.datetime.now(LAGOS_TIME)):
             bot.reply_to(
-                message, "Please renter assignment with a future deadline.")
+                message, "Please renter assignment with a future deadline.",
+                message_thread_id=message.message_thread_id)
             return
     except ValueError:
         bot.reply_to(
-            message, "Please renter assignment with the deadline in the right format: dd/mm/yy")
+            message, "Please renter assignment with the deadline in the right format: dd/mm/yy",
+            message_thread_id=message.message_thread_id)
         return
 
     assignment_details = {
@@ -129,10 +136,12 @@ def create_assignment(message):
         assignments_ref.push().set(assignment_details)
         logging.info(
             'inserted assignment with title: %s', assignment_details["title"])
-        bot.reply_to(message, "Assignment has been created successfully.")
+        bot.reply_to(message, "Assignment has been created successfully.",
+                     message_thread_id=message.message_thread_id)
     except FirebaseError as e:
         bot.reply_to(
-            message, "An error occurred while setting assignment. Please try again later.")
+            message, "An error occurred while setting assignment. Please try again later.",
+            message_thread_id=message.message_thread_id)
         logging.error("%s", e)
 
 
@@ -145,14 +154,16 @@ def list_assignments(message):
     except FirebaseError as e:
         logging.error(e)
         bot.reply_to(
-            message, "An error occurred while fetching assignments. Please try again later.")
+            message, "An error occurred while fetching assignments. Please try again later.",
+            message_thread_id=message.message_thread_id)
         return
     if (assignments_list is not None and len(assignments_list) > 0):
         assignments = list(assignments_list.values())  # type:ignore
         response_message = generate_get_assignments_message(assignments)
         bot.reply_to(message, response_message)
     else:
-        bot.send_message(message.chat.id, "No assignments found.")
+        bot.send_message(message.chat.id, "No assignments found.",
+                         message_thread_id=message.message_thread_id)
 
 
 @bot.message_handler(commands=['manageassignments'], func=lambda message: message.chat.type in ["supergroup", "group"])
@@ -162,34 +173,47 @@ def manage_assignments(message):
     Args:
       message (_type_): _description_
     """
+
     if (message.from_user.id not in [admin.user.id for admin in bot.get_chat_administrators(message.chat.id)]):
-        bot.reply_to(message, "You must be an admin to edit assignments.")
+        bot.reply_to(message, "You must be an admin to edit assignments.",
+                     message_thread_id=message.message_thread_id)
         return
     try:
+
         assignments_list = assignments_ref.order_by_child(
             "chat_id").equal_to(message.chat.id).get()
+
         if (assignments_list is not None and len(assignments_list) > 0):
             bot.reply_to(
-                message, f"Found {len(assignments_list)} assignments. Listing all.")
+                message, f"Found {len(assignments_list)} assignments. Listing all.",
+                message_thread_id=message.message_thread_id)
+
             for assignment_id in assignments_list:
                 keyboard = InlineKeyboardMarkup()
                 keyboard.row(InlineKeyboardButton('Edit', callback_data=f'EDIT_{assignment_id}'),
                              InlineKeyboardButton('Delete', callback_data=f'DELETE_{assignment_id}'))
                 keyboard.row(InlineKeyboardButton(
                     'View', callback_data=f'VIEW_{assignment_id}'))
+
                 bot.reply_to(
                     message, f"""
 Course Code: {assignments_list[assignment_id]['course_code']}\n
 Title: {assignments_list[assignment_id]['title'] }\n
 Deadline: {assignments_list[assignment_id]['deadline']}\n
 Description: {assignments_list[assignment_id]['description'][:50]}
-                    """, reply_markup=keyboard)
+                    """, reply_markup=keyboard, message_thread_id=message.message_thread_id)
+
         else:
-            bot.send_message(message.chat.id, "No assignments found.")
+            bot.send_message(message.chat.id, "No assignments found.",
+                             message_thread_id=message.message_thread_id)
+
     except FirebaseError as e:
         bot.reply_to(
-            message, "An error occurred while fetching assignments. Please try again later.")
+            message, "An error occurred while fetching assignments. Please try again later.",
+            message_thread_id=message.message_thread_id)
+
         logging.error("An erroor occurred while fetching assignments. %s", e)
+
     except telebot.apihelper.ApiTelegramException as e:
         logging.error(
             "An erroor occurred with telegram while assignments. %s", e)
@@ -207,7 +231,7 @@ Course Code: {assignments_list[assignment_id]['course_code']}\n
 Title: {assignments_list[assignment_id]['title'] }\n
 Deadline: {assignments_list[assignment_id]['deadline']}\n
 Description: {assignments_list[assignment_id]['description']}
-    """)
+    """, message_thread_id=call.message.message_thread_id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('EDIT_'))
@@ -220,7 +244,8 @@ Please reply to this message with the new assignment details in the following fo
 *Course Code*: __course code__\n
 *Title*: __assignment title__\n
 *Deadline*: dd/mm/yy\n
-*Description*: __assignment description__""", parse_mode="Markdown")
+*Description*: __assignment description__""", parse_mode="Markdown",
+                               message_thread_id=call.message.message_thread_id)
     bot.register_for_reply(message, edit_assignment_reply,
                            assignment_id=assignment_id, user_id=call.from_user.id)
 
@@ -229,18 +254,22 @@ def edit_assignment_reply(message, assignment_id, user_id):
     if (message.from_user.id not in [admin.user.id for admin in bot.get_chat_administrators(message.chat.id)]):
         return
     if (user_id != message.from_user.id):
-        bot.reply_to(message, "It seems you did not intiate this action.")
+        bot.reply_to(message, "It seems you did not intiate this action.",
+                     message_thread_id=message.message_thread_id)
         return
 
     assignment_details = message.text.replace(
         "/editassignment", "").strip().split(":")
     if (len(assignment_details) < 4):
         bot.reply_to(
-            message, "Please enter the assignment details in the right format. All fields must be rentered for update. Please try again.")
+            message, "Please enter the assignment details in the right format. All fields must be rentered for update. Please try again.",
+            message_thread_id=message.message_thread_id)
+        
     course_code = assignment_details[1].splitlines()[0].strip()
     title = assignment_details[2].splitlines()[0].strip()
     deadline = assignment_details[3].splitlines()[0].strip()
     description = assignment_details[4].strip()
+    
     try:
         assignments_ref.child(assignment_id).update({
             "course_code": course_code,
@@ -248,12 +277,14 @@ def edit_assignment_reply(message, assignment_id, user_id):
             "deadline": deadline,
             "description": description
         })
+        
     except FirebaseError as e:
         bot.reply_to(
-            message, "An error occurred while updating assignment. Please try again later.")
+            message, "An error occurred while updating assignment. Please try again later.",
+            message_thread_id=message.message_thread_id)
         logging.error(
             "An error occurred while updating assignment an assignment. %s", e)
-    bot.reply_to(message, "Assignment has been updated successfully.")
+    bot.reply_to(message, "Assignment has been updated successfully.", message_thread_id=message.message_thread_id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('DELETE_'))
@@ -265,11 +296,12 @@ def delete_assignment(call):
         assignments_ref.child(assignment_id).delete()
         logging.info('deleted assignment with id: %s', assignment_id)
         bot.send_message(call.message.chat.id,
-                         "Assignment has been deleted successfully.")
+                         "Assignment has been deleted successfully.",message_thread_id=call.message.message_thread_id)
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except FirebaseError as e:
         bot.reply_to(
-            call.message, "An error occurred while deleting assignment. Please try again later.")
+            call.message, "An error occurred while deleting assignment. Please try again later.",
+            message_thread_id=call.message.message_thread_id)
         logging.error("An error occurred while deleting assignment. %s", e)
 
 
