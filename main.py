@@ -337,7 +337,7 @@ def send_assignment_reminders():
 
 
 
-schedule.every().day.at("09:12", LAGOS_TIME).do(  # type: ignore
+schedule.every().day.at("12:00", LAGOS_TIME).do(  # type: ignore
     send_assignment_reminders)
 
 
