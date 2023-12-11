@@ -37,3 +37,20 @@ def generate_get_assignments_message(assignments: List[dict]) -> str:
     assignment_section = "\n\n".join(assignments_as_text)
 
     return message_format.format(assignment_section=assignment_section)
+
+def generate_assignment_reminder_message(assignments: List[dict]) -> str:
+    """Formats and returns an assigment reminder message from a list of assignments
+
+    Args:
+        assignments (List[dict]): List of assignments
+
+    Returns:
+        str: Reminder message
+    """
+    message_format = ("Hi there,\n Don't forget to complete your pending assigments! Here's  a quick "
+                      "rundown of what you have today:\n {assignment_section}\n"
+                      "Happy studying!\nYour friendly Assignment Reminder Bot")
+    
+    assignments_as_text = [assignment_to_text(ass) for ass in assignments]
+    assignment_section = "\n\n".join(assignments_as_text)
+    return message_format.format(assignment_section=assignment_section)
