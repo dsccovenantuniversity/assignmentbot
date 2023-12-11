@@ -11,7 +11,7 @@ import firebase_admin
 from firebase_admin import credentials, db
 from firebase_admin.exceptions import FirebaseError
 from dotenv import load_dotenv
-from utils import generate_get_assignments_message
+from utils import generate_assignment_reminder_message, generate_get_assignments_message
 
 load_dotenv()
 cred_obj = credentials.Certificate({
@@ -89,6 +89,9 @@ def create_assignment(message):
         admin.user.id for admin in bot.get_chat_administrators(message.chat.id)]
     if (message.from_user.id not in admin_ids):
         bot.reply_to(message, "You must be an admin to set assignments.",
+                     message_thread_id=message.message_thread_id)
+    elif (bot.get_me().id not in admin_ids):
+        bot.reply_to(message, "Please make me an admin to set assignments.",
                      message_thread_id=message.message_thread_id)
         return
     assignment_details = message.text.replace(
@@ -212,11 +215,11 @@ Description: {assignments_list[assignment_id]['description'][:50]}
             message, "An error occurred while fetching assignments. Please try again later.",
             message_thread_id=message.message_thread_id)
 
-        logging.error("An erroor occurred while fetching assignments. %s", e)
+        logging.error("An error occurred while fetching assignments. %s", e)
 
     except telebot.apihelper.ApiTelegramException as e:
         logging.error(
-            "An erroor occurred with telegram while assignments. %s", e)
+            "An error occurred with telegram while assignments. %s", e)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('VIEW_'))
@@ -264,12 +267,12 @@ def edit_assignment_reply(message, assignment_id, user_id):
         bot.reply_to(
             message, "Please enter the assignment details in the right format. All fields must be rentered for update. Please try again.",
             message_thread_id=message.message_thread_id)
-        
+
     course_code = assignment_details[1].splitlines()[0].strip()
     title = assignment_details[2].splitlines()[0].strip()
     deadline = assignment_details[3].splitlines()[0].strip()
     description = assignment_details[4].strip()
-    
+
     try:
         assignments_ref.child(assignment_id).update({
             "course_code": course_code,
@@ -277,14 +280,15 @@ def edit_assignment_reply(message, assignment_id, user_id):
             "deadline": deadline,
             "description": description
         })
-        
+
     except FirebaseError as e:
         bot.reply_to(
             message, "An error occurred while updating assignment. Please try again later.",
             message_thread_id=message.message_thread_id)
         logging.error(
             "An error occurred while updating assignment an assignment. %s", e)
-    bot.reply_to(message, "Assignment has been updated successfully.", message_thread_id=message.message_thread_id)
+    bot.reply_to(message, "Assignment has been updated successfully.",
+                 message_thread_id=message.message_thread_id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('DELETE_'))
@@ -296,7 +300,7 @@ def delete_assignment(call):
         assignments_ref.child(assignment_id).delete()
         logging.info('deleted assignment with id: %s', assignment_id)
         bot.send_message(call.message.chat.id,
-                         "Assignment has been deleted successfully.",message_thread_id=call.message.message_thread_id)
+                         "Assignment has been deleted successfully.", message_thread_id=call.message.message_thread_id)
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except FirebaseError as e:
         bot.reply_to(
@@ -308,43 +312,32 @@ def delete_assignment(call):
 def send_assignment_reminders():
     logging.info('starting reminders')
     assignments_list = assignments_ref.get()
-    for assignment in assignments_list:
-        # filter out/delete expired assigments
-        # calculate time left for assignment and send notification
-        assignment_deadline = datetime.datetime.strptime(
-            assignments_list[assignment]['deadline'], '%d/%m/%y').astimezone(LAGOS_TIME)
-        current_time = datetime.datetime.now(LAGOS_TIME)
-        time_left = assignment_deadline - current_time
-        days = time_left.days
-        hours = time_left.seconds//3600
-        if (assignment_deadline < current_time):
-            try:
-                bot.send_message(assignments_list[assignment]['chat_id'],
-                                 f"Assignment with title {assignments_list[assignment]['title']} is overdue by {hours} hours. It has been deleted.")
-                assignments_ref.child(assignment).delete()
-                assignments_list = assignments_ref.get()
-            except FirebaseError as e:
-                logging.error(e)
-            continue
-        if (days == 0):
-            try:
-                bot.send_message(assignments_list[assignment]['chat_id'],
-                                 "Assignment with title %s is due in %d hours. Please submit on time. ⌛" % (assignments_list[assignment]['title'], hours))
-                logging.info(
-                    "sent reminder for assignment with title %s", assignments_list[assignment]['title'])
-            except telebot.apihelper.ApiTelegramException as e:
-                logging.error(e)
+    assignment_dict = dict()
+    for assignment_id in assignments_list:
+        if datetime.datetime.strptime(assignments_list[assignment_id]['deadline'],'%d/%m/%y').astimezone(LAGOS_TIME) < datetime.datetime.now(LAGOS_TIME):
+            assignments_ref.child(assignment_id).delete()
+        #group assignments by chat id  
+        if (assignments_list[assignment_id]['chat_id'] not in assignment_dict.keys()):
+            assignment_dict[assignments_list[assignment_id]['chat_id']] = []
+            assignment_dict[assignments_list[assignment_id]
+                            ['chat_id']].append(assignments_list[assignment_id])
         else:
-            try:
-                bot.send_message(assignments_list[assignment]['chat_id'],
-                                 f"Assignment with title: {assignments_list[assignment]['title']} is due in {days} days. Please submit on time. ⌛")
-                logging.info(
-                    "sent reminder for assignment with title %s", assignments_list[assignment]['title'])
-            except telebot.apihelper.ApiTelegramException as e:
-                logging.error(e)
+            assignment_dict[assignments_list[assignment_id]
+                            ['chat_id']].append(assignments_list[assignment_id])
+    for chat_id in assignment_dict:
+        assignments = assignment_dict[chat_id]
+        response_message = generate_assignment_reminder_message(assignments)
+        try:
+            bot.send_message(chat_id, response_message)
+        except telebot.apihelper.ApiTelegramException as e:
+            logging.error("An error occurred with telegram while sending reminders. to chat with id %s" 
+                          "Exception: %s", str(chat_id), e)
+            continue
+        
 
 
-schedule.every().day.at("12:00", LAGOS_TIME).do(  # type: ignore
+
+schedule.every().day.at("09:12", LAGOS_TIME).do(  # type: ignore
     send_assignment_reminders)
 
 

@@ -3,3 +3,4 @@ firebase/
 .vscode/
 *-workspace
 .env
+__pycache__/
