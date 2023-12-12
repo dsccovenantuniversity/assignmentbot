@@ -324,15 +324,20 @@ def send_assignment_reminders():
         else:
             assignment_dict[assignments_list[assignment_id]
                             ['chat_id']].append(assignments_list[assignment_id])
+    successful = 0
+    failed = 0
     for chat_id in assignment_dict:
         assignments = assignment_dict[chat_id]
         response_message = generate_assignment_reminder_message(assignments)
         try:
             bot.send_message(chat_id, response_message)
+            successful += 1
         except telebot.apihelper.ApiTelegramException as e:
             logging.error("An error occurred with telegram while sending reminders. to chat with id %s" 
                           "Exception: %s", str(chat_id), e)
+            failed += 1
             continue
+    logging.info('sent reminders to %s chats. %s failed', successful, failed)
         
 
 
